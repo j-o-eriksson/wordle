@@ -44,11 +44,7 @@ class Worldle:
         ]
 
     def _valid(self, guess):
-        if len(guess) != 5:
-            return False
-        if guess not in self.dictionary:
-            return False
-        return True
+        return len(guess) == 5 and guess in self.dictionary
 
     def _get(self, exact, partial):
         def _check(letters, word, f):
