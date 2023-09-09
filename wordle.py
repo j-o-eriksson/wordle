@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import random
 from pathlib import Path
 
@@ -7,16 +9,16 @@ class Worldle:
         self.history = []
         self.word = word
         self.dictionary = dictionary
-        self.bad = set()
         self.exact = set()
         self.partial = set()
+        self.exclude = set()
 
     def guess(self, guess):
         matches = [(c1, _match(c1, c2, self.word)) for c1, c2 in zip(guess, self.word)]
 
-        self.bad |= {c for c, m in matches if m == " "}
         self.exact |= {(i, c) for i, (c, m) in enumerate(matches) if m == "*"}
         self.partial |= {(i, c) for i, (c, m) in enumerate(matches) if m == "."}
+        self.exclude |= {c for c, m in matches if m == " "}
         self.history.append(f"{guess}\n{''.join(m for _, m in matches)}")
 
         return matches
@@ -24,7 +26,7 @@ class Worldle:
     def query(self):
         while True:
             word = input("enter word: ")
-            if self._valid(word):
+            if self._is_valid(word):
                 return word, self.guess(word)
 
     def print(self):
@@ -33,32 +35,21 @@ class Worldle:
             print(state)
             print()
         print()
-        print(sorted(self.bad))
+        print(sorted(self.exclude))
 
-    def get_candidates(self):
-        return [
-            word
-            for word in self._get(self.exact, self.partial)
-            if all(c in word for _, c in self.partial)
-            and all(c not in word for c in self.bad)
-        ]
+    def candidates(self):
+        return [word for word in self.dictionary if self._is_candidate(word)]
 
-    def _valid(self, guess):
+    def _is_candidate(self, word):
+        return (
+            all(word[i] == c for i, c in self.exact)
+            and all(word[i] != c for i, c in self.partial)
+            and all(c in word for _, c in self.partial)
+            and all(c not in word for c in self.exclude)
+        )
+
+    def _is_valid(self, guess):
         return len(guess) == 5 and guess in self.dictionary
-
-    def _get(self, exact, partial):
-        def _check(letters, word, f):
-            for i, c in letters:
-                if f(word[i], c):
-                    return False
-            return True
-
-        return {
-            w
-            for w in self.dictionary
-            if _check(exact, w, lambda a, b: a != b)
-            and _check(partial, w, lambda a, b: a == b)
-        }
 
 
 def _match(c1, c2, word):
@@ -86,6 +77,6 @@ if __name__ == "__main__":
         if all(m == "*" for _, m in matches):
             break
 
-        candidates = game.get_candidates()
+        candidates = game.candidates()
         print(f"{len(candidates)} candidate(s):", sorted(candidates[:20]))
     print(word)
