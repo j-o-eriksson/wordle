@@ -8,13 +8,16 @@ class Worldle:
         self.word = word
         self.dictionary = dictionary
         self.bad = set()
+        self.exact = set()
+        self.partial = set()
 
     def guess(self, guess):
-        intersection = set(self.word) & set(guess)
-        matches = [_match(c1, c2, intersection) for c1, c2 in zip(guess, self.word)]
+        matches = [(c1, _match(c1, c2, self.word)) for c1, c2 in zip(guess, self.word)]
 
-        self.bad = self.bad | {c for c, m in zip(guess, matches) if m == " "}
-        self.history.append(f"{guess}\n{''.join(matches)}")
+        self.bad |= {c for c, m in matches if m == " "}
+        self.exact |= {(i, c) for i, (c, m) in enumerate(matches) if m == "*"}
+        self.partial |= {(i, c) for i, (c, m) in enumerate(matches) if m == "."}
+        self.history.append(f"{guess}\n{''.join(m for _, m in matches)}")
 
         return matches
 
@@ -32,14 +35,11 @@ class Worldle:
         print()
         print(sorted(self.bad))
 
-    def get_candidates(self, matches):
-        exact = [(i, c) for i, (c, m) in enumerate(matches) if m == "*"]
-        partial = [(i, c) for i, (c, m) in enumerate(matches) if m == "."]
-
+    def get_candidates(self):
         return [
             word
-            for word in self._get(exact, partial)
-            if all(c in word for _, c in partial)
+            for word in self._get(self.exact, self.partial)
+            if all(c in word for _, c in self.partial)
             and all(c not in word for c in self.bad)
         ]
 
@@ -61,10 +61,10 @@ class Worldle:
         }
 
 
-def _match(c1, c2, intersection):
+def _match(c1, c2, word):
     if c1 == c2:
         return "*"
-    if c1 in intersection:
+    if c1 in word:
         return "."
     return " "
 
@@ -83,9 +83,9 @@ if __name__ == "__main__":
         word, matches = game.query()
         game.print()
 
-        if all(m == "*" for m in matches):
+        if all(m == "*" for _, m in matches):
             break
 
-        candidates = game.get_candidates(list(zip(word, matches)))
+        candidates = game.get_candidates()
         print(f"{len(candidates)} candidate(s):", sorted(candidates[:20]))
     print(word)
